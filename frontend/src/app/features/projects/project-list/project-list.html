@@ -1,0 +1,51 @@
+<section class="page">
+  <header class="page__header">
+    <div>
+      <h1>Projects</h1>
+      <p>Applications guarded by EnvGuard approval gates.</p>
+    </div>
+    @if (canManage) {
+      <a class="btn btn--primary" routerLink="/projects/new">New project</a>
+    }
+  </header>
+
+  @if (loading()) {
+    <app-loading-state message="Loading projects…" />
+  } @else if (error()) {
+    <app-error-state [message]="error()!" (retry)="load()" />
+  } @else if (!items().length) {
+    <p class="empty panel">No projects yet.</p>
+  } @else {
+    <div class="table-wrap panel">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Branch</th>
+            <th>Owner</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of items(); track p.id) {
+            <tr>
+              <td>
+                <a [routerLink]="['/projects', p.id]">{{ p.name }}</a>
+              </td>
+              <td class="truncate">{{ p.description || '—' }}</td>
+              <td><code>{{ p.defaultBranch }}</code></td>
+              <td><code>{{ p.ownerId }}</code></td>
+              <td class="actions">
+                <a [routerLink]="['/projects', p.id, 'environments']">Envs</a>
+                @if (canManage) {
+                  <a [routerLink]="['/projects', p.id, 'edit']">Edit</a>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

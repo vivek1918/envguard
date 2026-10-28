@@ -1,0 +1,281 @@
+name: EnvGuard CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: Target environment (development|staging|production)
+        required: true
+        default: staging
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+
+permissions:
+  contents: read
+  id-token: write  # for AWS OIDC (preferred over long-lived keys)
+
+env:
+  JAVA_VERSION: "21"
+  NODE_VERSION: "22"
+  TARGET_ENV: ${{ github.event.inputs.target_environment || 'staging' }}
+
+jobs:
+  build-test:
+    name: Build and test
+    runs-on: ubuntu-latest
+    outputs:
+      artifact_digest: ${{ steps.digest.outputs.digest }}
+      commit_sha: ${{ github.sha }}
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Backend tests
+        working-directory: backend
+        run: mvn -B -q test
+
+      - name: Backend package
+        working-directory: backend
+        run: mvn -B -DskipTests package
+
+      - name: Frontend install
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend lint (if configured)
+        working-directory: frontend
+        continue-on-error: true
+        run: npm run lint --if-present
+
+      - name: Frontend tests
+        working-directory: frontend
+        run: npm test
+
+      - name: Frontend build
+        working-directory: frontend
+        run: npx ng build --configuration=production
+
+      - name: Dependency / secret scan (fail on high)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: false
+
+      - name: Validate environment YAML schema
+        run: |
+          python3 - <<'PY'
+          import json, sys, pathlib
+          try:
+            import yaml
+          except ImportError:
+            import subprocess
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "pyyaml", "jsonschema"])
+            import yaml
+          from jsonschema import validate
+          schema = json.loads(pathlib.Path("deploy/env/schema.json").read_text())
+          for p in pathlib.Path("deploy/env").glob("*.yaml"):
+            data = yaml.safe_load(p.read_text())
+            validate(instance=data, schema=schema)
+            print(f"OK {p}")
+          PY
+
+      - name: Build immutable artifact bundle
+        run: |
+          mkdir -p dist-artifact
+          cp backend/target/*.jar dist-artifact/envguard-backend.jar
+          cp -r frontend/dist/frontend/browser dist-artifact/frontend || cp -r frontend/dist/* dist-artifact/frontend
+          tar -czf envguard-artifact.tar.gz -C dist-artifact .
+          sha256sum envguard-artifact.tar.gz | awk '{print $1}' > artifact.sha256
+          echo "ARTIFACT_DIGEST=$(cat artifact.sha256)" >> "$GITHUB_ENV"
+
+      - name: Export digest
+        id: digest
+        run: echo "digest=$(cat artifact.sha256)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: envguard-artifact-${{ github.sha }}
+          path: |
+            envguard-artifact.tar.gz
+            artifact.sha256
+          retention-days: 14
+
+  prepare-approval:
+    name: Create deployment request
+    needs: build-test
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.target_environment || 'staging' }}
+    outputs:
+      deployment_id: ${{ steps.create.outputs.deployment_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Register build + create deployment request
+        id: create
+        env:
+          ENVGUARD_API_URL: ${{ secrets.ENVGUARD_API_URL }}
+          ENVGUARD_PIPELINE_TOKEN: ${{ secrets.ENVGUARD_PIPELINE_TOKEN }}
+          ENVGUARD_PROJECT_ID: ${{ secrets.ENVGUARD_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ENVGUARD_API_URL:-}" ] || [ -z "${ENVGUARD_PIPELINE_TOKEN:-}" ]; then
+            echo "ENVGUARD_API_URL / ENVGUARD_PIPELINE_TOKEN not configured — skipping remote approval gate (local CI only)."
+            echo "deployment_id=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          COMMIT="${{ needs.build-test.outputs.commit_sha }}"
+          DIGEST="${{ needs.build-test.outputs.artifact_digest }}"
+          ENV_NAME="${{ env.TARGET_ENV }}"
+          CONFIG_FILE="deploy/env/${ENV_NAME}.yaml"
+          IDEMPOTENCY="gha-${{ github.run_id }}-${{ github.run_attempt }}-${ENV_NAME}"
+
+          curl -fsS -X POST "${ENVGUARD_API_URL}/pipeline/builds" \
+            -H "Content-Type: application/json" \
+            -H "X-EnvGuard-Pipeline-Token: ${ENVGUARD_PIPELINE_TOKEN}" \
+            -d "{\"projectId\":\"${ENVGUARD_PROJECT_ID}\",\"projectName\":\"envguard\",\"commitSha\":\"${COMMIT}\",\"branch\":\"${{ github.ref_name }}\",\"pipelineRunId\":\"${{ github.run_id }}\",\"artifactDigest\":\"${DIGEST}\",\"status\":\"SUCCEEDED\"}"
+
+          RESP=$(curl -fsS -X POST "${ENVGUARD_API_URL}/pipeline/deployments" \
+            -H "Content-Type: application/json" \
+            -H "X-EnvGuard-Pipeline-Token: ${ENVGUARD_PIPELINE_TOKEN}" \
+            -d "{\"projectId\":\"${ENVGUARD_PROJECT_ID}\",\"projectName\":\"envguard\",\"environment\":\"${ENV_NAME}\",\"commitSha\":\"${COMMIT}\",\"artifactDigest\":\"${DIGEST}\",\"pipelineRunId\":\"${{ github.run_id }}\",\"branch\":\"${{ github.ref_name }}\",\"configYaml\":$(python3 -c 'import json,sys; print(json.dumps(open(sys.argv[1]).read()))' "$CONFIG_FILE"),\"requesterIdentity\":\"github-actions:${{ github.actor }}\",\"idempotencyKey\":\"${IDEMPOTENCY}\"}")
+          echo "$RESP"
+          echo "deployment_id=$(echo "$RESP" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("data",d).get("id",""))')" >> "$GITHUB_OUTPUT"
+
+  wait-approval:
+    name: Wait for EnvGuard approval
+    needs: [build-test, prepare-approval]
+    if: needs.prepare-approval.outputs.deployment_id != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Poll approval status
+        env:
+          ENVGUARD_API_URL: ${{ secrets.ENVGUARD_API_URL }}
+          ENVGUARD_PIPELINE_TOKEN: ${{ secrets.ENVGUARD_PIPELINE_TOKEN }}
+          DEPLOYMENT_ID: ${{ needs.prepare-approval.outputs.deployment_id }}
+          EXPECTED_DIGEST: ${{ needs.build-test.outputs.artifact_digest }}
+          EXPECTED_COMMIT: ${{ needs.build-test.outputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 120); do
+            RESP=$(curl -fsS "${ENVGUARD_API_URL}/pipeline/deployments/${DEPLOYMENT_ID}/status" \
+              -H "X-EnvGuard-Pipeline-Token: ${ENVGUARD_PIPELINE_TOKEN}")
+            STATUS=$(echo "$RESP" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("data",d).get("status",""))')
+            echo "Poll $i: $STATUS"
+            case "$STATUS" in
+              APPROVED)
+                VERIFY=$(curl -fsS -X POST "${ENVGUARD_API_URL}/pipeline/deployments/${DEPLOYMENT_ID}/verify" \
+                  -H "Content-Type: application/json" \
+                  -H "X-EnvGuard-Pipeline-Token: ${ENVGUARD_PIPELINE_TOKEN}" \
+                  -d "{\"commitSha\":\"${EXPECTED_COMMIT}\",\"artifactDigest\":\"${EXPECTED_DIGEST}\"}")
+                echo "$VERIFY"
+                OK=$(echo "$VERIFY" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(str(d.get("data",d).get("verified",False)).lower())')
+                if [ "$OK" != "true" ]; then
+                  echo "Approved release verification failed"
+                  exit 1
+                fi
+                exit 0
+                ;;
+              REJECTED|TIMED_OUT|FAILED|INVALIDATED)
+                echo "Deployment blocked: $STATUS"
+                exit 1
+                ;;
+            esac
+            sleep 30
+          done
+          echo "Approval wait timed out in workflow"
+          exit 1
+
+  deploy:
+    name: Deploy to EC2
+    needs: [build-test, prepare-approval, wait-approval]
+    if: success() && needs.prepare-approval.outputs.deployment_id != ''
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.target_environment || 'staging' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: envguard-artifact-${{ github.sha }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy via SSM
+        env:
+          INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+          DEPLOYMENT_ID: ${{ needs.prepare-approval.outputs.deployment_id }}
+          ENVGUARD_API_URL: ${{ secrets.ENVGUARD_API_URL }}
+          ENVGUARD_PIPELINE_TOKEN: ${{ secrets.ENVGUARD_PIPELINE_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Upload artifact to a private S3 bucket (configure bucket secret) then SSM pull — avoids baking secrets into the image.
+          BUCKET="${{ secrets.DEPLOY_ARTIFACT_BUCKET }}"
+          KEY="envguard/${{ github.sha }}/envguard-artifact.tar.gz"
+          aws s3 cp envguard-artifact.tar.gz "s3://${BUCKET}/${KEY}"
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters commands="[
+              \"set -euo pipefail\",
+              \"sudo /opt/envguard/scripts/deploy-from-s3.sh ${BUCKET} ${KEY} ${{ needs.build-test.outputs.artifact_digest }} ${{ env.TARGET_ENV }}\"
+            ]" \
+            --query 'Command.CommandId' --output text)
+
+          aws ssm wait command-executed --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID"
+          STATUS=$(aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --query 'Status' --output text)
+          if [ "$STATUS" != "Success" ]; then
+            echo "SSM deploy failed: $STATUS"
+            curl -fsS -X POST "${ENVGUARD_API_URL}/pipeline/deployments/${DEPLOYMENT_ID}/result" \
+              -H "Content-Type: application/json" \
+              -H "X-EnvGuard-Pipeline-Token: ${ENVGUARD_PIPELINE_TOKEN}" \
+              -d "{\"status\":\"FAILED\",\"healthStatus\":\"UNKNOWN\",\"errorMessage\":\"SSM status ${STATUS}\"}" || true
+            exit 1
+          fi
+
+          # Health check
+          APP_URL="${{ secrets.ENVGUARD_PUBLIC_URL }}"
+          for i in $(seq 1 30); do
+            if curl -fsS "${APP_URL}/api/health" | grep -qi ok; then
+              curl -fsS -X POST "${ENVGUARD_API_URL}/pipeline/deployments/${DEPLOYMENT_ID}/result" \
+                -H "Content-Type: application/json" \
+                -H "X-EnvGuard-Pipeline-Token: ${ENVGUARD_PIPELINE_TOKEN}" \
+                -d "{\"status\":\"DEPLOYED\",\"healthStatus\":\"HEALTHY\",\"targetHost\":\"${INSTANCE_ID}\"}"
+              exit 0
+            fi
+            sleep 5
+          done
+          curl -fsS -X POST "${ENVGUARD_API_URL}/pipeline/deployments/${DEPLOYMENT_ID}/result" \
+            -H "Content-Type: application/json" \
+            -H "X-EnvGuard-Pipeline-Token: ${ENVGUARD_PIPELINE_TOKEN}" \
+            -d "{\"status\":\"FAILED\",\"healthStatus\":\"UNHEALTHY\",\"errorMessage\":\"Health check failed\"}" || true
+          exit 1

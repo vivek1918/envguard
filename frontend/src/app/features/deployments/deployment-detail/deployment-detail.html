@@ -1,0 +1,110 @@
+<section class="page">
+  <header class="page__header">
+    <div>
+      <h1>Deployment</h1>
+      <p>Status, bound digests, and audit/approval trail.</p>
+    </div>
+    <a class="btn btn--ghost" routerLink="/approvals">Approvals</a>
+  </header>
+
+  @if (loading()) {
+    <app-loading-state message="Loading deployment…" />
+  } @else if (error()) {
+    <app-error-state [message]="error()!" (retry)="load()" />
+  } @else if (deployment(); as d) {
+    <div class="hero-meta panel">
+      <div>
+        <h2>{{ d.projectName || d.projectId }}</h2>
+        <p>
+          {{ d.environment }} · requested by {{ d.requesterIdentity || '—' }} ·
+          {{ d.createdAt | date: 'medium' }}
+        </p>
+      </div>
+      <span class="badge" [attr.data-status]="d.status">{{ d.status }}</span>
+    </div>
+
+    <div class="grid">
+      <article class="panel">
+        <h3>Release identity</h3>
+        <dl class="kv">
+          <div>
+            <dt>Commit SHA</dt>
+            <dd><code>{{ d.commitSha || '—' }}</code></dd>
+          </div>
+          <div>
+            <dt>Checksum</dt>
+            <dd><code>{{ d.checksum || '—' }}</code></dd>
+          </div>
+          <div>
+            <dt>Artifact digest</dt>
+            <dd><code>{{ d.artifactDigest || '—' }}</code></dd>
+          </div>
+          <div>
+            <dt>Revision ID</dt>
+            <dd><code>{{ d.revisionId || '—' }}</code></dd>
+          </div>
+          <div>
+            <dt>Build ID</dt>
+            <dd><code>{{ d.buildId || '—' }}</code></dd>
+          </div>
+          <div>
+            <dt>Idempotency key</dt>
+            <dd><code>{{ d.idempotencyKey || '—' }}</code></dd>
+          </div>
+        </dl>
+      </article>
+
+      <article class="panel">
+        <h3>Approval policy</h3>
+        <dl class="kv">
+          <div>
+            <dt>Approval count</dt>
+            <dd>{{ d.approvalCount }}</dd>
+          </div>
+          <div>
+            <dt>Second approver</dt>
+            <dd>{{ d.requiresSecondApprover ? 'Required' : 'Not required' }}</dd>
+          </div>
+          <div>
+            <dt>Expires</dt>
+            <dd>{{ d.expiresAt | date: 'medium' }}</dd>
+          </div>
+          <div>
+            <dt>Updated</dt>
+            <dd>{{ d.updatedAt | date: 'medium' }}</dd>
+          </div>
+        </dl>
+      </article>
+    </div>
+
+    <article class="panel">
+      <h3>Audit / approval trail</h3>
+      @if (!trail().length) {
+        <p class="empty">No trail events yet.</p>
+      } @else {
+        <ul class="timeline">
+          @for (ev of trail(); track $index) {
+            <li>
+              <strong>{{ ev['type'] || ev['action'] || 'EVENT' }}</strong>
+              <span>
+                @if (ev['decision']) {
+                  {{ ev['decision'] }}
+                }
+                @if (ev['approver']) {
+                  · {{ ev['approver'] }}
+                }
+                @if (ev['action']) {
+                  · {{ ev['action'] }}
+                }
+                @if (ev['comment']) {
+                  — {{ ev['comment'] }}
+                }
+              </span>
+              <time>{{ ev['createdAt'] }}</time>
+            </li>
+          }
+        </ul>
+      }
+    </article>
+  }
+</section>

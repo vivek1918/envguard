@@ -1,0 +1,71 @@
+<section class="page">
+  <header class="page__header">
+    <div>
+      <h1>Audit history</h1>
+      <p>Read-only trail of configuration and deployment actions.</p>
+    </div>
+  </header>
+
+  <form class="panel filters" [formGroup]="filters" (ngSubmit)="search()">
+    <label>
+      <span>Project ID</span>
+      <input formControlName="projectId" />
+    </label>
+    <label>
+      <span>User ID</span>
+      <input formControlName="userId" />
+    </label>
+    <label>
+      <span>Action</span>
+      <input formControlName="action" placeholder="e.g. DEPLOYMENT_APPROVED" />
+    </label>
+    <div class="filters__actions">
+      <button class="btn btn--primary" type="submit">Search</button>
+    </div>
+  </form>
+
+  @if (loading()) {
+    <app-loading-state message="Loading audit entries…" />
+  } @else if (error()) {
+    <app-error-state [message]="error()!" (retry)="search()" />
+  } @else if (!entries().length) {
+    <p class="empty panel">No audit entries matched.</p>
+  } @else {
+    <div class="table-wrap panel">
+      <p class="result-count">{{ total() }} result(s)</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Action</th>
+            <th>User</th>
+            <th>Project</th>
+            <th>Entity</th>
+            <th>Details</th>
+            <th>Correlation</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (e of entries(); track e.id) {
+            <tr>
+              <td>
+                <time>{{ e.createdAt | date: 'medium' }}</time>
+              </td>
+              <td><code>{{ e.action }}</code></td>
+              <td><code>{{ e.userId || '—' }}</code></td>
+              <td><code>{{ e.projectId || '—' }}</code></td>
+              <td>
+                <code>{{ e.entityType || '—' }}</code>
+                @if (e.entityId) {
+                  / {{ e.entityId }}
+                }
+              </td>
+              <td class="details">{{ e.detailsJson || '—' }}</td>
+              <td><code>{{ e.correlationId || '—' }}</code></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

@@ -1,0 +1,14 @@
+# Non-secret environment configuration (committed to git).
+# Sensitive values are referenced by AWS Secrets Manager name/path only.
+environment: staging
+
+variables:
+  APP_PORT: "8080"
+  LOG_LEVEL: "INFO"
+  DB_HOST: "envguard-db.internal"
+  DB_NAME: "envguard"
+  FEATURE_FLAGS: "approvals,audit"
+
+secretReferences:
+  DB_PASSWORD: "envguard/staging/db-password"
+  JWT_SECRET: "envguard/staging/jwt-secret"

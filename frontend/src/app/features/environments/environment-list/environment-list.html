@@ -1,0 +1,53 @@
+<section class="page">
+  <header class="page__header">
+    <div>
+      <h1>{{ project()?.name || 'Environments' }}</h1>
+      <p>DEV / STAGING / PRODUCTION — approvers and approval timeouts.</p>
+    </div>
+    <a class="btn btn--ghost" [routerLink]="['/projects']">All projects</a>
+  </header>
+
+  @if (loading()) {
+    <app-loading-state message="Loading environments…" />
+  } @else if (error()) {
+    <app-error-state [message]="error()!" (retry)="load()" />
+  } @else if (!environments().length) {
+    <p class="empty panel">No environments configured for this project.</p>
+  } @else {
+    <div class="env-grid">
+      @for (env of environments(); track env.id) {
+        <article class="panel env-card">
+          <header>
+            <h2>{{ env.name }}</h2>
+            <span
+              class="badge"
+              [attr.data-status]="env.requiresSecondApprover ? 'WARN' : 'OK'"
+              >{{ env.requiresSecondApprover ? '2 approvers' : '1 approver' }}</span
+            >
+          </header>
+
+          <dl>
+            <div>
+              <dt>Timeout (minutes)</dt>
+              <dd>{{ env.approvalTimeoutMinutes }}</dd>
+            </div>
+            <div>
+              <dt>Approver user IDs</dt>
+              <dd>
+                @if (!env.approverUserIds?.length) {
+                  Project members (default policy)
+                } @else {
+                  <ul>
+                    @for (uid of env.approverUserIds; track uid) {
+                      <li><code>{{ uid }}</code></li>
+                    }
+                  </ul>
+                }
+              </dd>
+            </div>
+          </dl>
+        </article>
+      }
+    </div>
+  }
+</section>

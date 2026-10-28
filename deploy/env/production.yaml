@@ -1,0 +1,12 @@
+environment: production
+
+variables:
+  APP_PORT: "8080"
+  LOG_LEVEL: "WARN"
+  DB_HOST: "envguard-db.internal"
+  DB_NAME: "envguard"
+  FEATURE_FLAGS: "approvals,audit"
+
+secretReferences:
+  DB_PASSWORD: "envguard/production/db-password"
+  JWT_SECRET: "envguard/production/jwt-secret"

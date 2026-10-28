@@ -1,0 +1,43 @@
+<section class="page">
+  <header class="page__header">
+    <div>
+      <h1>{{ isEdit ? 'Edit project' : 'Create project' }}</h1>
+      <p>
+        Projects own DEV / STAGING / PRODUCTION environments. Wire GitHub/Bitbucket integrations
+        after create.
+      </p>
+    </div>
+    <a class="btn btn--ghost" routerLink="/projects">Back</a>
+  </header>
+
+  @if (bootstrapping()) {
+    <app-loading-state message="Loading project…" />
+  } @else {
+    @if (error()) {
+      <app-error-state [message]="error()!" [retryable]="!!projectId()" (retry)="ngOnInit()" />
+    }
+
+    <form class="panel form-grid" [formGroup]="form" (ngSubmit)="submit()">
+      <label>
+        <span>Name</span>
+        <input formControlName="name" />
+      </label>
+
+      <label>
+        <span>Default branch</span>
+        <input formControlName="defaultBranch" />
+      </label>
+
+      <label class="full">
+        <span>Description</span>
+        <textarea formControlName="description" rows="3"></textarea>
+      </label>
+
+      <div class="form-actions full">
+        <button class="btn btn--primary" type="submit" [disabled]="loading()">
+          {{ loading() ? 'Saving…' : 'Save project' }}
+        </button>
+      </div>
+    </form>
+  }
+</section>

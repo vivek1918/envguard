@@ -1,0 +1,22 @@
+[Unit]
+Description=EnvGuard Spring Boot Backend
+After=network.target
+
+[Service]
+Type=simple
+User=envguard
+Group=envguard
+WorkingDirectory=/opt/envguard/current
+EnvironmentFile=-/opt/envguard/runtime/.env
+ExecStart=/usr/bin/java -jar /opt/envguard/current/envguard-backend.jar
+Restart=on-failure
+RestartSec=5
+SuccessExitStatus=143
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/envguard/logs /opt/envguard/runtime
+
+[Install]
+WantedBy=multi-user.target

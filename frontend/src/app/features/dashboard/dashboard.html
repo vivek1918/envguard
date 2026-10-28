@@ -1,0 +1,74 @@
+<section class="page">
+  <header class="page__header">
+    <div>
+      <h1>Dashboard</h1>
+      <p>Projects, approvals, and deployment outcomes at a glance.</p>
+    </div>
+    <a class="btn btn--ghost" routerLink="/approvals">Open approvals</a>
+  </header>
+
+  @if (loading()) {
+    <app-loading-state message="Loading dashboard…" />
+  } @else if (error()) {
+    <app-error-state [message]="error()!" (retry)="load()" />
+  } @else if (stats(); as s) {
+    <div class="metrics">
+      <article class="metric">
+        <span class="metric__label">Projects</span>
+        <strong>{{ s.projects }}</strong>
+      </article>
+      <article class="metric">
+        <span class="metric__label">Users</span>
+        <strong>{{ s.users }}</strong>
+      </article>
+      <article class="metric metric--warn">
+        <span class="metric__label">Pending approvals</span>
+        <strong>{{ s.pendingApprovals }}</strong>
+      </article>
+      <article class="metric">
+        <span class="metric__label">Approved</span>
+        <strong>{{ s.approved }}</strong>
+      </article>
+      <article class="metric metric--ok">
+        <span class="metric__label">Deployed</span>
+        <strong>{{ s.deployed }}</strong>
+      </article>
+      <article class="metric metric--bad">
+        <span class="metric__label">Failed</span>
+        <strong>{{ s.failed }}</strong>
+      </article>
+      <article class="metric metric--bad">
+        <span class="metric__label">Rejected</span>
+        <strong>{{ s.rejected }}</strong>
+      </article>
+      <article class="metric">
+        <span class="metric__label">Timed out</span>
+        <strong>{{ s.timedOut }}</strong>
+      </article>
+      <article class="metric">
+        <span class="metric__label">Audit events</span>
+        <strong>{{ s.auditEvents }}</strong>
+      </article>
+    </div>
+
+    <section class="panel">
+      <header class="panel__header">
+        <h2>By status</h2>
+      </header>
+      @if (!statusEntries(s.byStatus).length) {
+        <p class="empty">No deployment requests yet.</p>
+      } @else {
+        <ul class="activity">
+          @for (row of statusEntries(s.byStatus); track row.key) {
+            <li>
+              <div>
+                <strong>{{ row.key }}</strong>
+              </div>
+              <span>{{ row.value }}</span>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  }
+</section>

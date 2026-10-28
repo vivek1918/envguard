@@ -1,0 +1,71 @@
+services:
+  mysql:
+    image: mysql:8.0.40
+    container_name: envguard-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-envguard}
+      MYSQL_USER: ${MYSQL_USER:-envguard}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me-db}
+    ports:
+      # Bound to localhost only — do not expose MySQL publicly
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - envguard-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-change-me-root}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: envguard-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-envguard}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-envguard}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-change-me-db}
+      ENVGUARD_JWT_SECRET: ${ENVGUARD_JWT_SECRET:?Set ENVGUARD_JWT_SECRET}
+      ENVGUARD_PIPELINE_TOKEN: ${ENVGUARD_PIPELINE_TOKEN:?Set ENVGUARD_PIPELINE_TOKEN}
+      ENVGUARD_CORS_ORIGINS: ${ENVGUARD_CORS_ORIGINS:-http://localhost:4200,http://localhost}
+      ENVGUARD_AWS_ENABLED: ${ENVGUARD_AWS_ENABLED:-false}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      ENVGUARD_BOOTSTRAP_ADMIN_USER: ${ENVGUARD_BOOTSTRAP_ADMIN_USER:-}
+      ENVGUARD_BOOTSTRAP_ADMIN_PASSWORD: ${ENVGUARD_BOOTSTRAP_ADMIN_PASSWORD:-}
+      ENVGUARD_BOOTSTRAP_ADMIN_EMAIL: ${ENVGUARD_BOOTSTRAP_ADMIN_EMAIL:-}
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        API_URL: /api
+    container_name: envguard-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    # For local TLS termination, prefer infrastructure/nginx with certificates on EC2.
+
+volumes:
+  envguard-mysql-data:

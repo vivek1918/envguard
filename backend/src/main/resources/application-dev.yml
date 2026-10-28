@@ -1,0 +1,27 @@
+spring:
+  datasource:
+    # Defaults align with envguard/docker-compose.yml MySQL service
+    url: jdbc:mysql://${ENVGUARD_DB_HOST:localhost}:${ENVGUARD_DB_PORT:3306}/${ENVGUARD_DB_NAME:envguard}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${ENVGUARD_DB_USER:envguard}
+    password: ${ENVGUARD_DB_PASSWORD:change-me-db}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+  flyway:
+    enabled: true
+
+envguard:
+  aws:
+    enabled: ${ENVGUARD_AWS_ENABLED:false}
+    region: ${AWS_REGION:us-east-1}
+  bootstrap:
+    admin-user: ${ENVGUARD_BOOTSTRAP_ADMIN_USER:}
+    admin-password: ${ENVGUARD_BOOTSTRAP_ADMIN_PASSWORD:}
+    admin-email: ${ENVGUARD_BOOTSTRAP_ADMIN_EMAIL:}
+
+logging:
+  level:
+    com.envguard: DEBUG

@@ -1,0 +1,70 @@
+spring:
+  application:
+    name: envguard-backend
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+server:
+  port: 8080
+  error:
+    include-message: never
+    include-binding-errors: never
+
+management:
+  endpoints:
+    web:
+      base-path: /internal/actuator
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: when_authorized
+  server:
+    base-path: /internal
+
+envguard:
+  jwt:
+    secret: ${ENVGUARD_JWT_SECRET:change-me-in-production-use-at-least-256-bits-secret-key!!}
+    expiration-ms: ${ENVGUARD_JWT_EXPIRATION_MS:86400000}
+  pipeline:
+    token: ${ENVGUARD_PIPELINE_TOKEN:}
+  cors:
+    allowed-origins: ${ENVGUARD_CORS_ORIGINS:http://localhost:4200}
+  aws:
+    enabled: ${ENVGUARD_AWS_ENABLED:false}
+    region: ${AWS_REGION:us-east-1}
+  approval:
+    default-timeout-minutes: 60
+    reject-self-approval-production: true
+  rate-limit:
+    login-max-attempts: 10
+    login-window-seconds: 60
+  bootstrap:
+    admin-user: ${ENVGUARD_BOOTSTRAP_ADMIN_USER:}
+    admin-password: ${ENVGUARD_BOOTSTRAP_ADMIN_PASSWORD:}
+    admin-email: ${ENVGUARD_BOOTSTRAP_ADMIN_EMAIL:}
+
+springdoc:
+  api-docs:
+    path: /api/v3/api-docs
+  swagger-ui:
+    path: /api/swagger-ui.html
+
+logging:
+  level:
+    root: INFO
+    com.envguard: INFO
+  pattern:
+    console: "%d{ISO8601} [%thread] [%X{correlationId}] %-5level %logger{36} - %msg%n"

@@ -1,0 +1,41 @@
+<div class="shell">
+  <aside class="shell__aside">
+    <div class="brand">
+      <span class="brand__mark" aria-hidden="true"></span>
+      <div>
+        <strong class="brand__name">EnvGuard</strong>
+        <span class="brand__tag">Config approval</span>
+      </div>
+    </div>
+
+    <nav class="nav" aria-label="Primary">
+      @for (item of navItems(); track item.path) {
+        <a
+          class="nav__link"
+          [routerLink]="item.path"
+          routerLinkActive="is-active"
+          >{{ item.label }}</a
+        >
+      }
+    </nav>
+
+    <div class="shell__user">
+      @if (user(); as u) {
+        <div class="user-meta">
+          <span class="user-meta__name">{{ u.username }}</span>
+          <span class="user-meta__role">{{ (u.roles || []).join(', ') || '—' }}</span>
+        </div>
+      }
+      <button type="button" class="btn btn--ghost btn--sm" (click)="logout()">Sign out</button>
+    </div>
+  </aside>
+
+  <div class="shell__main">
+    <header class="shell__top">
+      <p class="shell__eyebrow">Environment configuration · guarded deployments</p>
+    </header>
+    <main class="shell__content">
+      <router-outlet />
+    </main>
+  </div>
+</div>

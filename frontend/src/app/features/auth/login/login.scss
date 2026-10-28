@@ -1,0 +1,111 @@
+.auth {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background:
+    radial-gradient(900px 500px at 15% 10%, color-mix(in srgb, var(--eg-teal) 22%, transparent), transparent 60%),
+    radial-gradient(700px 420px at 90% 80%, color-mix(in srgb, var(--eg-slate) 40%, transparent), transparent 55%),
+    linear-gradient(160deg, #0f1720 0%, #15202b 45%, #101a22 100%);
+}
+
+.auth__panel {
+  width: min(960px, 100%);
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  overflow: hidden;
+  border: 1px solid var(--eg-border);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--eg-surface) 92%, transparent);
+  box-shadow: 0 24px 60px rgba(8, 16, 24, 0.35);
+}
+
+.auth__brand {
+  padding: 2.5rem 2rem;
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--eg-teal) 18%, transparent), transparent 55%),
+    color-mix(in srgb, var(--eg-slate) 35%, transparent);
+  display: grid;
+  align-content: center;
+  gap: 0.75rem;
+}
+
+.auth__mark {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.65rem;
+  background: linear-gradient(145deg, var(--eg-teal), #1f6f7a);
+}
+
+.auth__brand h1 {
+  margin: 0;
+  font-family: var(--eg-font-display);
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  letter-spacing: -0.03em;
+  color: var(--eg-text);
+}
+
+.auth__brand p {
+  margin: 0;
+  max-width: 28ch;
+  color: var(--eg-muted);
+  line-height: 1.5;
+}
+
+.auth__form {
+  display: grid;
+  gap: 0.9rem;
+  padding: 2rem 1.75rem;
+  align-content: center;
+}
+
+.auth__form h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.25rem;
+}
+
+.auth__form label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--eg-muted);
+}
+
+.auth__form input {
+  width: 100%;
+}
+
+.form-error {
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--eg-danger) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--eg-danger) 35%, transparent);
+  color: #ffb4b0;
+  font-size: 0.9rem;
+}
+
+.auth__switch {
+  margin: 0.25rem 0 0;
+  color: var(--eg-muted);
+  font-size: 0.9rem;
+}
+
+.linkish {
+  border: 0;
+  background: none;
+  color: var(--eg-teal-2);
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+  padding: 0;
+}
+
+@media (max-width: 800px) {
+  .auth__panel {
+    grid-template-columns: 1fr;
+  }
+
+  .auth__brand {
+    padding-bottom: 1.25rem;
+  }
+}

@@ -1,0 +1,140 @@
+<section class="page">
+  <header class="page__header">
+    <div>
+      <h1>Approval inbox</h1>
+      <p>Bind approval to checksum and artifact digest before promoting.</p>
+    </div>
+  </header>
+
+  <form class="panel filters" [formGroup]="filters" (ngSubmit)="load()">
+    <label>
+      <span>Project ID</span>
+      <input formControlName="projectId" />
+    </label>
+    <label>
+      <span>Environment</span>
+      <input formControlName="environment" placeholder="dev / staging / production" />
+    </label>
+    <div class="filters__actions">
+      <button class="btn btn--primary" type="submit">Apply filters</button>
+    </div>
+  </form>
+
+  @if (loading()) {
+    <app-loading-state message="Loading pending approvals…" />
+  } @else if (error()) {
+    <app-error-state [message]="error()!" (retry)="load()" />
+  } @else {
+    <div class="inbox">
+      <div class="panel inbox__list">
+        @if (!items().length) {
+          <p class="empty">No pending approvals.</p>
+        } @else {
+          <ul>
+            @for (item of items(); track item.id) {
+              <li>
+                <button
+                  type="button"
+                  class="inbox-item"
+                  [class.is-active]="selected()?.id === item.id"
+                  (click)="select(item)"
+                >
+                  <strong>{{ item.projectName || item.projectId }}</strong>
+                  <span
+                    >{{ item.environment }} · {{ item.requesterIdentity || 'unknown' }} ·
+                    {{ item.status }}</span
+                  >
+                  <time>{{ item.createdAt | date: 'short' }}</time>
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+
+      <div class="panel inbox__detail">
+        @if (!selected()) {
+          <p class="empty">Select a deployment to inspect checksum, digest, and commit.</p>
+        } @else if (detailLoading()) {
+          <app-loading-state message="Loading detail…" />
+        } @else if (detail(); as d) {
+          <header class="detail-head">
+            <div>
+              <h2>{{ d.projectName || d.projectId }}</h2>
+              <p>{{ d.environment }} · {{ d.status }}</p>
+            </div>
+            <a class="btn btn--ghost btn--sm" [routerLink]="['/deployments', d.id]">Full detail</a>
+          </header>
+
+          @if (actionError()) {
+            <div class="form-error" role="alert">{{ actionError() }}</div>
+          }
+
+          <section>
+            <h3>Bound release identity</h3>
+            <dl class="kv">
+              <div>
+                <dt>Commit</dt>
+                <dd><code>{{ d.commitSha || '—' }}</code></dd>
+              </div>
+              <div>
+                <dt>Checksum</dt>
+                <dd><code>{{ d.checksum || '—' }}</code></dd>
+              </div>
+              <div>
+                <dt>Artifact digest</dt>
+                <dd><code>{{ d.artifactDigest || '—' }}</code></dd>
+              </div>
+              <div>
+                <dt>Revision</dt>
+                <dd><code>{{ d.revisionId || '—' }}</code></dd>
+              </div>
+              <div>
+                <dt>Approvals</dt>
+                <dd>
+                  {{ d.approvalCount
+                  }}{{ d.requiresSecondApprover ? ' (second approver required)' : '' }}
+                </dd>
+              </div>
+              <div>
+                <dt>Expires</dt>
+                <dd>{{ d.expiresAt | date: 'medium' }}</dd>
+              </div>
+            </dl>
+          </section>
+
+          @if (canApprove) {
+            <form class="decision" [formGroup]="decision">
+              <label>
+                <span>Comment (optional)</span>
+                <textarea formControlName="comment" rows="3"></textarea>
+              </label>
+              <p class="empty">
+                Approve sends the listed checksum and artifact digest so the gate stays bound to
+                this exact revision.
+              </p>
+              <div class="decision__actions">
+                <button
+                  type="button"
+                  class="btn btn--danger"
+                  [disabled]="acting()"
+                  (click)="reject()"
+                >
+                  Reject
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--primary"
+                  [disabled]="acting()"
+                  (click)="approve()"
+                >
+                  Approve
+                </button>
+              </div>
+            </form>
+          }
+        }
+      </div>
+    </div>
+  }
+</section>
