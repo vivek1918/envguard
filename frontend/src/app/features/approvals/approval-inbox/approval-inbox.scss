@@ -91,6 +91,51 @@
   gap: 0.35rem;
 }
 
+.config-review {
+  display: grid;
+  gap: 0.75rem;
+
+  h3 {
+    margin: 0;
+    font-size: 0.95rem;
+  }
+}
+
+.config-review__hint {
+  margin: 0;
+  color: var(--eg-muted);
+  font-size: 0.85rem;
+}
+
+.diff-summary {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+
+  p {
+    margin: 0;
+  }
+}
+
+.tag {
+  display: inline-block;
+  min-width: 1.1rem;
+  font-family: var(--eg-font-mono);
+  font-weight: 600;
+
+  &--add {
+    color: var(--eg-success);
+  }
+
+  &--remove {
+    color: var(--eg-danger);
+  }
+
+  &--change {
+    color: var(--eg-warn, #e0a106);
+  }
+}
+
 .diff-list {
   display: grid;
   gap: 0.75rem;

@@ -29,6 +29,9 @@ describe('ApprovalInbox actions', () => {
     createdAt: new Date().toISOString(),
     approvalCount: 0,
     requiresSecondApprover: false,
+    configYaml: 'environment: staging\nvariables:\n  APP_NAME: demo\n',
+    variables: [{ name: 'APP_NAME', value: 'demo', secretRef: false }],
+    diff: { addedVariables: ['APP_NAME'], removedVariables: [], changedVariables: [] },
   };
 
   beforeEach(async () => {

@@ -27,8 +27,11 @@ public class DeploymentService {
     private final AuditEventRepository auditEventRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final UserRepository userRepository;
+    private final ConfigurationRevisionRepository revisionRepository;
     private final ProjectService projectService;
     private final AuditService auditService;
+    private final ConfigurationService configurationService;
+    private final ConfigurationValidationService validationService;
     private final EnvGuardProperties properties;
 
     @Data
@@ -52,6 +55,10 @@ public class DeploymentService {
         private String updatedAt;
         private long approvalCount;
         private boolean requiresSecondApprover;
+        /** Redacted YAML for human review before approve/reject. */
+        private String configYaml;
+        private List<ConfigurationService.VariableView> variables;
+        private ConfigurationValidationService.ConfigDiff diff;
     }
 
     @Transactional(readOnly = true)
@@ -313,18 +320,20 @@ public class DeploymentService {
     public DeploymentView toView(DeploymentRequest dr) {
         long approvals = approvalRecordRepository.countByDeploymentRequestIdAndDecision(
                 dr.getId(), ApprovalDecision.APPROVED);
+        ConfigurationRevision revision = dr.getRevision();
+        ConfigurationService.RevisionView revisionView = configurationService.toView(revision);
         return DeploymentView.builder()
                 .id(dr.getId().toString())
                 .projectId(dr.getProject().getId().toString())
                 .projectName(dr.getProject().getName())
                 .environmentId(dr.getEnvironment().getId().toString())
                 .environment(EnvironmentNameParser.toApiName(dr.getEnvironment().getName()))
-                .revisionId(dr.getRevision().getId().toString())
-                .checksum(dr.getRevision().getChecksum())
-                .artifactDigest(dr.getRevision().getArtifactDigest() != null
-                        ? dr.getRevision().getArtifactDigest()
+                .revisionId(revision.getId().toString())
+                .checksum(revision.getChecksum())
+                .artifactDigest(revision.getArtifactDigest() != null
+                        ? revision.getArtifactDigest()
                         : dr.getBuild().getArtifactDigest())
-                .commitSha(dr.getRevision().getSourceCommitSha())
+                .commitSha(revision.getSourceCommitSha())
                 .buildId(dr.getBuild().getId().toString())
                 .status(dr.getStatus().name())
                 .requesterIdentity(dr.getRequesterIdentity())
@@ -334,6 +343,35 @@ public class DeploymentService {
                 .updatedAt(dr.getUpdatedAt() != null ? dr.getUpdatedAt().toString() : null)
                 .approvalCount(approvals)
                 .requiresSecondApprover(dr.getEnvironment().isRequiresSecondApprover())
+                .configYaml(SecretRedactor.redact(revision.getConfigYaml()))
+                .variables(revisionView.getVariables())
+                .diff(diffAgainstPrevious(revision))
                 .build();
+    }
+
+    private ConfigurationValidationService.ConfigDiff diffAgainstPrevious(ConfigurationRevision revision) {
+        ConfigurationValidationService.ValidationResult current =
+                validationService.validate(revision.getConfigYaml(), Set.of());
+        Optional<ConfigurationRevision> previous = revisionRepository
+                .findByProjectIdAndEnvironmentIdOrderByCreatedAtDesc(
+                        revision.getProject().getId(), revision.getEnvironment().getId())
+                .stream()
+                .filter(r -> !r.getId().equals(revision.getId()))
+                .findFirst();
+        if (previous.isEmpty()) {
+            return ConfigurationValidationService.ConfigDiff.builder()
+                    .addedVariables(current.getVariables() == null ? List.of()
+                            : current.getVariables().keySet().stream().sorted().toList())
+                    .removedVariables(List.of())
+                    .changedVariables(List.of())
+                    .addedSecretRefs(current.getSecretReferences() == null ? List.of()
+                            : current.getSecretReferences().keySet().stream().sorted().toList())
+                    .removedSecretRefs(List.of())
+                    .changedSecretRefs(List.of())
+                    .build();
+        }
+        ConfigurationValidationService.ValidationResult prior =
+                validationService.validate(previous.get().getConfigYaml(), Set.of());
+        return validationService.diff(prior, current);
     }
 }

@@ -49,6 +49,21 @@ describe('Login', () => {
     component.submit();
     expect(auth.login).not.toHaveBeenCalled();
     expect(component.form.invalid).toBe(true);
+    expect(component.error()).toContain('valid username and password');
+    expect(component.fieldError('username')).toContain('required');
+  });
+
+  it('should explain short passwords on register', () => {
+    component.mode.set('register');
+    component.form.setValue({
+      username: 'admin',
+      password: 'short',
+      email: 'a@b.co',
+    });
+    component.submit();
+    expect(auth.register).not.toHaveBeenCalled();
+    expect(component.fieldError('password')).toContain('at least 8');
+    expect(component.error()).toContain('8+ characters');
   });
 
   it('should call login with credentials', () => {

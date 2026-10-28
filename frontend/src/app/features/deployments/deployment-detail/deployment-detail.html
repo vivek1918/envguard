@@ -23,6 +23,39 @@
       <span class="badge" [attr.data-status]="d.status">{{ d.status }}</span>
     </div>
 
+    @if (d.configYaml) {
+      <article class="panel config-panel">
+        <h3>Environment configuration</h3>
+        <p class="config-hint">
+          Env file bound to this deployment. Secret values are redacted; secret references show names
+          only.
+        </p>
+        <pre class="logs">{{ d.configYaml }}</pre>
+        @if (d.diff; as diff) {
+          <ul class="diff-chips">
+            @if (diff.addedVariables?.length) {
+              <li>+ {{ diff.addedVariables!.join(', ') }}</li>
+            }
+            @if (diff.removedVariables?.length) {
+              <li>− {{ diff.removedVariables!.join(', ') }}</li>
+            }
+            @if (diff.changedVariables?.length) {
+              <li>~ {{ diff.changedVariables!.join(', ') }}</li>
+            }
+            @if (diff.addedSecretRefs?.length) {
+              <li>+ secrets {{ diff.addedSecretRefs!.join(', ') }}</li>
+            }
+            @if (diff.removedSecretRefs?.length) {
+              <li>− secrets {{ diff.removedSecretRefs!.join(', ') }}</li>
+            }
+            @if (diff.changedSecretRefs?.length) {
+              <li>~ secrets {{ diff.changedSecretRefs!.join(', ') }}</li>
+            }
+          </ul>
+        }
+      </article>
+    }
+
     <div class="grid">
       <article class="panel">
         <h3>Release identity</h3>

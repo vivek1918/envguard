@@ -41,8 +41,8 @@ public class PipelineTokenFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain) throws ServletException, IOException {
 
-        String configured = properties.getPipeline().getToken();
-        String provided = request.getHeader(HEADER);
+        String configured = trimToNull(properties.getPipeline().getToken());
+        String provided = trimToNull(request.getHeader(HEADER));
 
         if (!StringUtils.hasText(configured) || !StringUtils.hasText(provided)
                 || !constantTimeEquals(configured, provided)) {
@@ -62,5 +62,13 @@ public class PipelineTokenFilter extends OncePerRequestFilter {
         byte[] left = a.getBytes(StandardCharsets.UTF_8);
         byte[] right = b.getBytes(StandardCharsets.UTF_8);
         return MessageDigest.isEqual(left, right);
+    }
+
+    private static String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

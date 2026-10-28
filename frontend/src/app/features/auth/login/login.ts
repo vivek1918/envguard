@@ -32,6 +32,26 @@ export class Login {
     this.mode.update((m) => (m === 'login' ? 'register' : 'login'));
   }
 
+  fieldError(controlName: 'username' | 'password' | 'email'): string | null {
+    const control = this.form.controls[controlName];
+    if (!control.touched || !control.invalid) {
+      return null;
+    }
+    if (control.hasError('required')) {
+      return `${controlName === 'email' ? 'Email' : controlName === 'username' ? 'Username' : 'Password'} is required`;
+    }
+    if (control.hasError('minlength')) {
+      const min = control.getError('minlength')?.requiredLength as number;
+      return controlName === 'password'
+        ? `Password must be at least ${min} characters`
+        : `Username must be at least ${min} characters`;
+    }
+    if (control.hasError('email')) {
+      return 'Enter a valid email address';
+    }
+    return 'Invalid value';
+  }
+
   submit(): void {
     if (this.mode() === 'register') {
       this.form.controls.email.setValidators([Validators.required, Validators.email]);
@@ -42,6 +62,11 @@ export class Login {
 
     if (this.form.invalid) {
       this.form.markAllAsTouched();
+      this.error.set(
+        this.mode() === 'register'
+          ? 'Fix the highlighted fields to create an account (password needs 8+ characters).'
+          : 'Enter a valid username and password to sign in.',
+      );
       return;
     }
 

@@ -14,6 +14,7 @@ import com.envguard.repository.EnvironmentRepository;
 import com.envguard.repository.UserRepository;
 import com.envguard.security.UserPrincipal;
 import com.envguard.util.EnvironmentNameParser;
+import com.envguard.util.SecretRedactor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -243,13 +244,18 @@ public class ConfigurationService {
 
     public RevisionView toView(ConfigurationRevision revision) {
         List<VariableView> vars = revision.getVariables().stream()
-                .map(v -> VariableView.builder()
-                        .name(v.getVarName())
-                        .value(v.isSecretRef() ? null : v.getVarValue())
-                        .secretRef(v.isSecretRef())
-                        .secretReference(v.getSecretReference())
-                        .secretVersion(v.getSecretVersion())
-                        .build())
+                .map(v -> {
+                    Object safeValue = v.isSecretRef()
+                            ? null
+                            : SecretRedactor.redactValue(v.getVarName(), v.getVarValue());
+                    return VariableView.builder()
+                            .name(v.getVarName())
+                            .value(safeValue == null ? null : String.valueOf(safeValue))
+                            .secretRef(v.isSecretRef())
+                            .secretReference(SecretRedactor.maskSecretReference(v.getSecretReference()))
+                            .secretVersion(v.getSecretVersion())
+                            .build();
+                })
                 .toList();
         return RevisionView.builder()
                 .id(revision.getId().toString())

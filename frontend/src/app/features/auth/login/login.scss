@@ -75,6 +75,21 @@
   width: 100%;
 }
 
+.auth__form input.input--invalid {
+  border-color: color-mix(in srgb, var(--eg-danger) 70%, white);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--eg-danger) 20%, transparent);
+}
+
+.field-hint {
+  color: var(--eg-muted);
+  font-size: 0.78rem;
+}
+
+.field-error {
+  color: #ffb4b0;
+  font-size: 0.78rem;
+}
+
 .form-error {
   padding: 0.7rem 0.85rem;
   border-radius: 0.5rem;

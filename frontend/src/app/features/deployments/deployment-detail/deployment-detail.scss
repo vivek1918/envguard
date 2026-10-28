@@ -15,6 +15,35 @@
   }
 }
 
+.config-panel {
+  margin-bottom: 1rem;
+}
+
+.config-hint {
+  margin: 0 0 0.75rem;
+  color: var(--eg-muted);
+  font-size: 0.85rem;
+}
+
+.diff-chips {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-family: var(--eg-font-mono);
+  font-size: 0.78rem;
+  color: var(--eg-muted);
+
+  li {
+    padding: 0.25rem 0.55rem;
+    border-radius: 0.4rem;
+    border: 1px solid var(--eg-border);
+    background: color-mix(in srgb, var(--eg-slate) 22%, transparent);
+  }
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

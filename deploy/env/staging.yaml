@@ -1,14 +1,23 @@
 # Non-secret environment configuration (committed to git).
 # Sensitive values are referenced by AWS Secrets Manager name/path only.
+# Keys must match Spring Boot / systemd EnvironmentFile names (ENVGUARD_*).
 environment: staging
 
 variables:
-  APP_PORT: "8080"
-  LOG_LEVEL: "INFO"
-  DB_HOST: "envguard-db.internal"
-  DB_NAME: "envguard"
+  SPRING_PROFILES_ACTIVE: "dev"
+  SERVER_PORT: "8080"
+  AWS_REGION: "ap-southeast-2"
+  # Flyway owns schema; MariaDB CHAR(36) UUIDs disagree with Hibernate validate defaults
+  SPRING_JPA_HIBERNATE_DDL_AUTO: "none"
+  ENVGUARD_AWS_ENABLED: "true"
+  ENVGUARD_DB_HOST: "127.0.0.1"
+  ENVGUARD_DB_PORT: "3306"
+  ENVGUARD_DB_NAME: "envguard"
+  ENVGUARD_DB_USER: "envguard"
+  ENVGUARD_CORS_ORIGINS: "http://13.236.98.29,http://localhost:4200"
   FEATURE_FLAGS: "approvals,audit"
 
 secretReferences:
-  DB_PASSWORD: "envguard/staging/db-password"
-  JWT_SECRET: "envguard/staging/jwt-secret"
+  ENVGUARD_DB_PASSWORD: "envguard/staging/db-password"
+  ENVGUARD_JWT_SECRET: "envguard/staging/jwt-secret"
+  ENVGUARD_PIPELINE_TOKEN: "envguard/staging/pipeline-token"

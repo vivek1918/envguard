@@ -87,6 +87,25 @@ export interface EnvironmentInfo {
   approverUserIds?: string[];
 }
 
+/** Backend ConfigurationService.VariableView — secret values are never returned. */
+export interface ConfigVariable {
+  name: string;
+  value?: string | null;
+  secretRef: boolean;
+  secretReference?: string | null;
+  secretVersion?: string | null;
+}
+
+/** Backend ConfigurationValidationService.ConfigDiff — names only. */
+export interface ConfigDiff {
+  addedVariables?: string[];
+  removedVariables?: string[];
+  changedVariables?: string[];
+  addedSecretRefs?: string[];
+  removedSecretRefs?: string[];
+  changedSecretRefs?: string[];
+}
+
 /** Backend DeploymentService.DeploymentView */
 export interface Deployment {
   id: string;
@@ -107,6 +126,10 @@ export interface Deployment {
   updatedAt?: string | null;
   approvalCount: number;
   requiresSecondApprover: boolean;
+  /** Redacted env YAML for review before approve/reject. */
+  configYaml?: string | null;
+  variables?: ConfigVariable[] | null;
+  diff?: ConfigDiff | null;
 }
 
 /** Pending approvals endpoint returns DeploymentView list. */

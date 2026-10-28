@@ -2,7 +2,7 @@
   <header class="page__header">
     <div>
       <h1>Approval inbox</h1>
-      <p>Bind approval to checksum and artifact digest before promoting.</p>
+      <p>Review the env file, then bind approval to checksum and artifact digest.</p>
     </div>
   </header>
 
@@ -54,7 +54,7 @@
 
       <div class="panel inbox__detail">
         @if (!selected()) {
-          <p class="empty">Select a deployment to inspect checksum, digest, and commit.</p>
+          <p class="empty">Select a deployment to inspect the env file, checksum, digest, and commit.</p>
         } @else if (detailLoading()) {
           <app-loading-state message="Loading detail…" />
         } @else if (detail(); as d) {
@@ -101,6 +101,48 @@
                 <dd>{{ d.expiresAt | date: 'medium' }}</dd>
               </div>
             </dl>
+          </section>
+
+          <section class="config-review">
+            <h3>Environment configuration</h3>
+            <p class="config-review__hint">
+              Review the env file that will be promoted. Secret values are never shown — only names and
+              references.
+            </p>
+            @if (d.configYaml) {
+              <div class="diff">
+                <header>
+                  <span>config.yaml</span>
+                  <span>{{ d.environment }}</span>
+                </header>
+                <pre>{{ d.configYaml }}</pre>
+              </div>
+            } @else {
+              <p class="empty">No configuration payload on this deployment.</p>
+            }
+
+            @if (d.diff; as diff) {
+              <div class="diff-summary">
+                @if (diff.addedVariables?.length) {
+                  <p><span class="tag tag--add">+</span> Variables: {{ diff.addedVariables!.join(', ') }}</p>
+                }
+                @if (diff.removedVariables?.length) {
+                  <p><span class="tag tag--remove">−</span> Variables: {{ diff.removedVariables!.join(', ') }}</p>
+                }
+                @if (diff.changedVariables?.length) {
+                  <p><span class="tag tag--change">~</span> Variables: {{ diff.changedVariables!.join(', ') }}</p>
+                }
+                @if (diff.addedSecretRefs?.length) {
+                  <p><span class="tag tag--add">+</span> Secrets: {{ diff.addedSecretRefs!.join(', ') }}</p>
+                }
+                @if (diff.removedSecretRefs?.length) {
+                  <p><span class="tag tag--remove">−</span> Secrets: {{ diff.removedSecretRefs!.join(', ') }}</p>
+                }
+                @if (diff.changedSecretRefs?.length) {
+                  <p><span class="tag tag--change">~</span> Secrets: {{ diff.changedSecretRefs!.join(', ') }}</p>
+                }
+              </div>
+            }
           </section>
 
           @if (canApprove) {

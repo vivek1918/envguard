@@ -277,6 +277,9 @@ class DeploymentWorkflowIntegrationTest {
                                 artifactDigest, runId, developer.getUsername(), idempotencyKey)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.status").value("READY_FOR_APPROVAL"))
+                .andExpect(jsonPath("$.data.configYaml").value(org.hamcrest.Matchers.containsString("APP_NAME: envguard")))
+                .andExpect(jsonPath("$.data.variables").isArray())
+                .andExpect(jsonPath("$.data.diff.addedVariables").isArray())
                 .andReturn();
         return objectMapper.readTree(result.getResponse().getContentAsString()).path("data").path("id").asText();
     }
@@ -285,6 +288,8 @@ class DeploymentWorkflowIntegrationTest {
         MvcResult result = mockMvc.perform(get("/api/deployments/" + id)
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.configYaml").isNotEmpty())
+                .andExpect(jsonPath("$.data.variables").isArray())
                 .andReturn();
         return objectMapper.readTree(result.getResponse().getContentAsString()).path("data");
     }
