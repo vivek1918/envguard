@@ -29,14 +29,28 @@ fi
 
 tar -xzf "${TMP_TAR}" -C "${RELEASE_DIR}"
 
+# Service runs as envguard — release tree must be traversable/readable by that user.
+chown -R envguard:envguard "${RELEASE_DIR}"
+find "${RELEASE_DIR}" -type d -exec chmod 755 {} +
+find "${RELEASE_DIR}" -type f -exec chmod 644 {} +
+
 # Resolve secrets into a restrictive runtime env file (never under web root).
 # Prefer AWS Secrets Manager + IAM role on the instance.
 if [[ -x "${APP_ROOT}/scripts/render-runtime-env.sh" ]]; then
   "${APP_ROOT}/scripts/render-runtime-env.sh" "${TARGET_ENV}" "${RUNTIME_DIR}/.env"
   chmod 600 "${RUNTIME_DIR}/.env"
+  chown envguard:envguard "${RUNTIME_DIR}/.env" || true
 fi
 
 ln -sfn "${RELEASE_DIR}" "${APP_ROOT}/current"
+chown -h envguard:envguard "${APP_ROOT}/current" || true
+
+# Publish SPA for Nginx.
+if [[ -d "${RELEASE_DIR}/frontend" ]]; then
+  mkdir -p /var/www/envguard
+  rsync -a --delete "${RELEASE_DIR}/frontend/" /var/www/envguard/
+fi
+
 sudo systemctl restart envguard-backend || true
 sudo systemctl reload nginx || true
 
